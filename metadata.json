@@ -1,0 +1,7 @@
+{
+  "name": "MesaFit",
+  "description": "Um Sistema Operacional Alimentar Adaptativo que organiza sua vida nutricional através de uma mesa digital inteligente e modular, inspirada no Pinterest e Notion.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
