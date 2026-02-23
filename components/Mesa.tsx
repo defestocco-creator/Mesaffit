@@ -124,9 +124,58 @@ export const Mesa: React.FC<MesaProps> = ({ user, onLogout }) => {
       setTodayPlan(snapshot.val());
     });
 
+    // Listener para disparo de notificações via Firebase
+    const notificationRef = ref(db, `users/${user.id}/profile/notificationDispar`);
+    const unsubscribeNotification = onValue(notificationRef, async (snapshot) => {
+      if (snapshot.val() === true) {
+        // Buscar planejamento de hoje
+        const todayKey = getLocalDateKey();
+        const planningRef = ref(db, `users/${user.id}/planning/${todayKey}`);
+        
+        // Usar once() aqui seria ideal, mas como estamos dentro de um onValue, vamos ler o estado atual ou buscar
+        // Como o todayPlan já está no estado, podemos tentar usá-lo, mas ele pode não estar atualizado dentro deste callback closure se não estiver nas dependências.
+        // Melhor buscar diretamente do snapshot ou usar uma ref separada se quisermos garantir dados frescos sem depender do estado.
+        // Vamos ler o planejamento diretamente para garantir.
+        
+        // Pequeno hack: ler o planejamento atual via onValue unique
+        onValue(planningRef, (planSnap) => {
+          const plan = planSnap.val();
+          let notificationBody = "Hora de se hidratar! 💧";
+          let notificationIcon = "/favicon.ico";
+
+          if (plan && plan.meals && plan.meals.length > 0) {
+            // Filtrar refeições não consumidas
+            const pendingMeals = plan.meals.filter((m: any) => !m.consumed);
+            
+            if (pendingMeals.length > 0) {
+              // Pegar uma aleatória
+              const randomMeal = pendingMeals[Math.floor(Math.random() * pendingMeals.length)];
+              notificationBody = `Hora da refeição: ${randomMeal.description} 🍽️`;
+            } else {
+              notificationBody = "Você completou todas as refeições de hoje! 🎉";
+            }
+          }
+
+          // Disparar notificação
+          if (Notification.permission === 'granted') {
+            new Notification("MesaFit Lembrete", {
+              body: notificationBody,
+              icon: notificationIcon
+            });
+          }
+
+          // Resetar a flag no Firebase
+          update(ref(db, `users/${user.id}/profile`), {
+            notificationDispar: false
+          });
+        }, { onlyOnce: true });
+      }
+    });
+
     return () => {
       off(logsRef);
       unsubscribePlanning();
+      off(notificationRef);
     };
   }, [user.id, user.lastCheckIn]);
 
